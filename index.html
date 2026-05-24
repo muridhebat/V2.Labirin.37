@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Labirin 37 _ V2</title>
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/9805/9805578.png" type="image/x-icon">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { 
+      width: 100%; 
+      height: 100%; 
+      background: #FFFFF0; 
+      font-family: 'Segoe UI', sans-serif; 
+      overflow: hidden; 
+    }
+    
+    .container { 
+      width: 100%; 
+      height: 100vh; 
+      height: -webkit-fill-available; 
+      display: flex; 
+      flex-direction: column; 
+    }
+    
+    .iframe-container { 
+      flex: 1; 
+      width: 100%; 
+      height: 100%; 
+      position: relative; 
+      overflow: hidden; 
+    }
+    
+    iframe { 
+      width: 100%; 
+      height: 100%; 
+      border: none; 
+      background: #f1f5f9; 
+    }
+    
+    /* ========================================
+       LOADING SCREEN - KUBUS 3D
+       ======================================== */
+    .loading { 
+      position: fixed; 
+      top: 0; 
+      left: 0;
+      width: 100%; 
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #e0e7ff 0%, #f1f5f9 50%, #dbeafe 100%);
+      z-index: 10; 
+      transition: opacity 0.5s ease;
+    }
+
+    .loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .cube-container {
+      width: 40px;
+      height: 40px;
+      perspective: 150px;
+      margin-bottom: 25px;
+    }
+
+    .cube {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: rotateCube 1.5s infinite linear; 
+    }
+
+    .face {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 18px;
+      color: rgba(0,0,0,0.3);
+      box-shadow: inset 0 0 10px rgba(255,255,255,0.5);
+    }
+
+    .front  { background: rgba(239, 68, 68, 0.9); transform: rotateY(0deg) translateZ(20px); }
+    .back   { background: rgba(249, 115, 22, 0.9); transform: rotateY(180deg) translateZ(20px); }
+    .right  { background: rgba(34, 197, 94, 0.9); transform: rotateY(90deg) translateZ(20px); }
+    .left   { background: rgba(59, 130, 246, 0.9); transform: rotateY(-90deg) translateZ(20px); }
+    .top    { background: rgba(255, 255, 255, 0.95); transform: rotateX(90deg) translateZ(20px); }
+    .bottom { background: rgba(234, 179, 8, 0.9); transform: rotateX(-90deg) translateZ(20px); }
+
+    @keyframes rotateCube {
+      0%   { transform: rotateX(0deg) rotateY(0deg); }
+      25%  { transform: rotateX(90deg) rotateY(90deg); }
+      50%  { transform: rotateX(180deg) rotateY(180deg); }
+      75%  { transform: rotateX(270deg) rotateY(270deg); }
+      100% { transform: rotateX(360deg) rotateY(360deg); }
+    }
+
+    .loading-text {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #334155;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .loading-text::after {
+      content: '';
+      animation: dots 2s infinite;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- Loading Screen -->
+    <div class="loading" id="loading">
+      <div class="cube-container">
+        <div class="cube">
+          <div class="face front">∑</div>
+          <div class="face back">π</div>
+          <div class="face right">∫</div>
+          <div class="face left">∞</div>
+          <div class="face top">÷</div>
+          <div class="face bottom">√</div>
+        </div>
+      </div>
+      <p class="loading-text">Memuat Aplikasi</p>
+    </div>
+
+    <div class="iframe-container">
+      <!-- allow-popups-to-escape-sandbox: agar tab baru dari iframe TIDAK ter-sandbox -->
+      <iframe id="appFrame" src="" allow="fullscreen; camera; microphone" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"></iframe>
+    </div>
+  </div>
+
+  <script>
+    // =============================================
+    // URL Google Apps Script Anda
+    // =============================================
+    var APP_URL = "https://script.google.com/macros/s/AKfycbwNu9DOXXgZz8Ga5viuApS-eaVJB588lt5cRSuHHfKkLB1wktvPGPJSp7cwU-bmd9xzCg/exec";
+    
+    var appFrame = document.getElementById('appFrame');
+    var loading = document.getElementById('loading');
+
+    // =============================================
+    // HANDLER REQUEST DARI IFRAME
+    // =============================================
+    window.addEventListener('message', function(event) {
+      try {
+        var data = event.data;
+        if (!data || typeof data !== 'object') return;
+
+        // 1. Buka tab kosong atas nama parent (user gesture masih aktif)
+        if (data.action === 'openBlank') {
+          window.open('', '_blank');
+          return;
+        }
+
+        // 2. Buka URL langsung dari parent (fallback jika langsung berhasil)
+        if (data.action === 'openDownload' && data.url) {
+          window.open(data.url, '_blank');
+          return;
+        }
+
+        // 3. Fullscreen dari parent document
+        if (data.action === 'requestFullscreen') {
+          var el = document.documentElement;
+          var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+          if (fn) fn.call(el).catch(function(){});
+          return;
+        }
+      } catch(e) {
+        console.warn('PostMessage error:', e);
+      }
+    });
+
+    // =============================================
+    // LOGIKA DELAY 6 DETIK
+    // =============================================
+    var startTime = Date.now();
+    var MIN_LOAD_TIME = 6000;
+    
+    function loadApp() {
+      var fullUrl = window.location.href;
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get('id');
+      
+      var targetUrl = APP_URL;
+      
+      if (id) {
+        if (targetUrl.indexOf('?') !== -1) {
+             targetUrl += "&id=" + id;
+        } else {
+             targetUrl += "?id=" + id;
+        }
+      }
+      
+      appFrame.src = targetUrl;
+    }
+    
+    function hideLoading() {
+      loading.classList.add('hidden');
+    }
+
+    appFrame.addEventListener('load', function() {
+      var elapsedTime = Date.now() - startTime;
+      var remainingTime = MIN_LOAD_TIME - elapsedTime;
+
+      if (remainingTime > 0) {
+        setTimeout(hideLoading, remainingTime);
+      } else {
+        hideLoading();
+      }
+    });
+    
+    window.addEventListener('DOMContentLoaded', loadApp);
+  </script>
+</body>
+</html>
